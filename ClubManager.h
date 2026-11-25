@@ -3,6 +3,8 @@
 #include <vector>
 #include <deque>
 #include <string>
+
+#include "ClimberRepository.h"
 #include "Entity/AscentLog.h"
 #include "Entity/ClimbingRoute.h"
 #include "Entity/Insurance.h"
@@ -10,17 +12,19 @@
 
 class ClubManager {
     std::vector<ClimbingRoute> routes;
-    std::vector<Climber> climbers;
+    ClimberRepository climberRepository;
     std::deque<AscentLog> storedAscents;
     std::vector<Insurance> insurances;
 
 public:
     ClubManager();
 
-    ClubManager(const std::vector<ClimbingRoute>& routes,
-                const std::vector<Climber>& climbers,
-                const std::deque<AscentLog>& storedAscents,
-                const std::vector<Insurance>& insurances);
+    ClubManager(
+        const std::vector<ClimbingRoute>& routes,
+        const ClimberRepository& climberRepository,
+        const std::deque<AscentLog>& storedAscents,
+        const std::vector<Insurance>& insurances
+    );
 
     void addRoute(const ClimbingRoute& route);
     void addClimber(const Climber& climber);

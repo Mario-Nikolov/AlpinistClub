@@ -20,23 +20,27 @@
 #include "Exceptions/InvalidInsuranceDataException.h"
 #include "Exceptions/InvalidInsuranceException.h"
 #include "Exceptions/InvalidWeatherException.h"
+#include "FileUtils.h"
 
 ClubManager::ClubManager() = default;
 
 ClubManager::ClubManager(
     const std::vector<ClimbingRoute>& routes,
-    const std::vector<Climber>& climbers,
+    const ClimberRepository& climberRepository,
     const std::deque<AscentLog>& storedAscents,
-    const std::vector<Insurance>& insurances ):
-    routes(routes), climbers(climbers),
-    storedAscents(storedAscents),insurances(insurances){}
+    const std::vector<Insurance>& insurances
+    ):
+    routes(routes),
+    climberRepository(climberRepository),
+    storedAscents(storedAscents),
+    insurances(insurances){}
 
 const std::vector<ClimbingRoute>& ClubManager::getRoutes() const {
     return routes;
 }
 
 const std::vector<Climber>& ClubManager::getClimbers() const {
-    return climbers;
+    return climberRepository.getClimbers();
 }
 
 const std::deque<AscentLog>& ClubManager::getStoredAscents() const {
@@ -45,16 +49,6 @@ const std::deque<AscentLog>& ClubManager::getStoredAscents() const {
 
 const std::vector<Insurance>& ClubManager::getInsurances() const {
     return insurances;
-}
-
-std::string readField(std::stringstream& ss, char separator) {
-    std::string value;
-
-    if (!std::getline(ss, value, separator)) {
-        throw InvalidFileDataException();
-    }
-
-    return value;
 }
 
 bool ClubManager::ascentExists(int id) const {
@@ -99,40 +93,11 @@ void ClubManager::addRoute(const ClimbingRoute& route) {
 }
 
 void ClubManager::addClimber(const Climber& climber) {
-    for (const Climber& existing : climbers) {
-        if (existing.getClimberId() == climber.getClimberId()) {
-            throw ClimberIdAlreadyExistsException();
-        }
-    }
-
-    std::ofstream file("climbers.csv", std::ios::app);
-
-    if (!file.is_open()) {
-        throw CouldNotOpenFileException("climbers.csv");
-    }
-
-    std::stringstream ss;
-
-    ss << climber.getClimberId() << ","
-       << climber.getFullName() << ","
-       << climber.getExperience() << ","
-       << climber.getInsuranceId();
-
-    for (int ascentId : climber.getAscentLogsIds()) {
-        ss << "," << ascentId;
-    }
-
-    file << ss.str() << "\n";
-    file.flush();
-
-    if (!file) {
-        throw CouldNotSaveClimberException();
-    }
-
-    climbers.push_back(climber);
+    climberRepository.addClimber(climber);
 
     std::cout << "The climber was saved!" << std::endl;
 }
+
 void ClubManager::addInsurance(const Insurance& insurance) {
     for (const Insurance& existing : insurances) {
         if (existing.getInsuranceId() == insurance.getInsuranceId()) {
@@ -163,7 +128,6 @@ void ClubManager::addInsurance(const Insurance& insurance) {
 
 void ClubManager::loadData() {
     routes.clear();
-    climbers.clear();
     storedAscents.clear();
     insurances.clear();
 
@@ -210,46 +174,8 @@ void ClubManager::loadData() {
         }
     }
 
-    std::ifstream climbersFile("climbers.csv");
+    climberRepository.loadFromFile();
 
-    if (climbersFile.is_open()) {
-        while (std::getline(climbersFile, line)) {
-            if (line.empty()) {
-                continue;
-            }
-
-            std::stringstream ss(line);
-
-            int id = std::stoi(readField(ss, ','));
-            std::string name = readField(ss, ',');
-            int experience = std::stoi(readField(ss, ','));
-            int insurance = std::stoi(readField(ss, ','));
-
-            if (experience < 1 || experience > 4) {
-                throw InvalidExperienceException();
-            }
-
-            std::vector<int> ascentsIds;
-
-            std::string ascentId;
-
-            while (std::getline(ss, ascentId, ',')) {
-                if (ascentId.empty()) {
-                    continue;
-                }
-
-                ascentsIds.push_back(std::stoi(ascentId));
-            }
-
-            climbers.emplace_back(
-                id,
-                name,
-                static_cast<Experience>(experience),
-                insurance,
-                ascentsIds
-            );
-        }
-    }
 
     std::ifstream insuranceFile("insurances.csv");
 
@@ -375,12 +301,12 @@ void ClubManager::printClimber( const Climber& climber) const {
 }
 
 void ClubManager::printClimbers() const {
-    if (climbers.empty()) {
+    if (climberRepository.getClimbers().empty()) {
         std::cout << "No climbers found!\n";
         return;
     }
 
-    for (const Climber& climber : climbers) {
+    for (const Climber& climber : climberRepository.getClimbers()) {
         printClimber(climber);
     }
 }
@@ -420,14 +346,8 @@ void ClubManager::printRoutes() const {
     }
 }
 
-const Climber* ClubManager::findClimberById(int climberId) const {
-    for (const Climber& climber : climbers) {
-        if (climber.getClimberId() == climberId) {
-            return &climber;
-        }
-    }
-
-    return nullptr;
+const Climber* ClubManager::findClimberById(int id) const {
+    return climberRepository.findClimberById(id);
 }
 
 void ClubManager::printAscentById(int id) const {
@@ -469,7 +389,7 @@ const AscentLog* ClubManager::findAscentById(int id) const {
 }
 
 void ClubManager::showClimberInfo(const Climber& climber) const {
-    if (climbers.empty()) {
+    if (climberRepository.getClimbers().empty()) {
         std::cout << "No climbers found!\n";
         return;
     }
@@ -539,30 +459,7 @@ Insurance ClubManager::checkInsurance(int insuranceId) const {
 }
 
 void ClubManager::saveClimbersToFile() const {
-    std::ofstream file("climbers.csv", std::ios::trunc);
-
-    if (!file.is_open()) {
-        throw CouldNotOpenFileException("climbers.csv");
-    }
-
-    for (const Climber& climber : climbers) {
-        file << climber.getClimberId() << ","
-             << climber.getFullName() << ","
-             << climber.getExperience() << ","
-             << climber.getInsuranceId();
-
-        for (int ascentId : climber.getAscentLogsIds()) {
-            file << "," << ascentId;
-        }
-
-        file << "\n";
-    }
-
-    file.close();
-
-    if (!file) {
-        throw CouldNotSaveClimberException();
-    }
+    climberRepository.saveClimbersToFile();
 }
 
 void ClubManager::registerClimb(
@@ -693,14 +590,6 @@ void ClubManager::registerClimb(
 
     storedAscents.push_back(ascentLog);
 
-    // Update original climbers
-    for (Climber& existing : climbers) {
-        if (groupClimbers.find(existing) != groupClimbers.end()) {
-            existing.addAscentId(id);
-        }
-    }
-
-    // Update climbers.csv
     saveClimbersToFile();
 
     std::cout << "Ascent registered successfully!\n";

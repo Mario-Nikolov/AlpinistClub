@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 4.3)
-project(untitled1)
+project(AlpinistClub)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(untitled1 main.cpp
+add_executable(AlpinistClub main.cpp
         Entity/enums.h
         Entity/ClimbingRoute.h
         Entity/ClimbingRoute.cpp
@@ -34,4 +34,16 @@ add_executable(untitled1 main.cpp
         Exceptions/InvalidInsuranceDataException.h
         Exceptions/DuplicateInsuranceIdInFileException.h
         Exceptions/InsufficientExperienceException.h
-        Exceptions/InsuranceNotFoundException.h)
+        Exceptions/InsuranceNotFoundException.h
+        Repository/ClimberRepository.h
+        Repository/ClimberRepository.cpp
+        Utils/FileUtils.h
+        Utils/FileUtils.cpp)
+
+target_include_directories(AlpinistClub PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/Entity
+        ${CMAKE_CURRENT_SOURCE_DIR}/Repository
+        ${CMAKE_CURRENT_SOURCE_DIR}/Exceptions
+        ${CMAKE_CURRENT_SOURCE_DIR}/Utils
+)
